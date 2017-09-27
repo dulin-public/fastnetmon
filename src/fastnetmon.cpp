@@ -140,6 +140,9 @@ bool enable_api = false;
 time_t last_call_of_traffic_recalculation;
 
 std::string cli_stats_file_path = "/tmp/fastnetmon.dat";
+#ifdef GEOIP
+std::string white_list_path = "/opt/fastnetmon/GeoIP.dat";
+#endif
 
 unsigned int stats_thread_sleep_time = 3600;
 unsigned int stats_thread_initial_call_delay = 30;
@@ -647,14 +650,18 @@ bool exec_with_stdin_params(std::string cmd, std::string params) {
 
 #ifdef GEOIP
 bool geoip_init() {
-    // load GeoIP ASN database to memory
-    geo_ip = GeoIP_open("/root/fastnetmon/GeoIPASNum.dat", GEOIP_MEMORY_CACHE);
-
-    if (geo_ip == NULL) {
-        return false;
+    if(file_exists(geo_ip_database_path)) {
+        // load GeoIP ASN database to memory
+        geo_ip = GeoIP_open(geo_ip_database_path, GEOIP_MEMORY_CACHE);
+        if (geo_ip != NULL) {
+            return true;
+        }
     } else {
-        return true;
+        logger << log4cpp::Priority::ERROR << "Can't find GeoIP database file on:" << geo_ip_database_path << cmd;
     }
+
+
+    return false;
 }
 #endif
 
@@ -1365,6 +1372,12 @@ bool load_configuration_file() {
     if (configuration_map.count("check_period") != 0) {
         check_period = convert_string_to_integer(configuration_map["check_period"]);
     }
+
+#ifdef GEOIP
+    if (configuration_map.count("geo_ip_database_path") != 0) {
+        geo_ip_database_path = configuration_map["geo_ip_database_path"];
+    }
+#endif
 
     if (configuration_map.count("sort_parameter") != 0) {
         sort_parameter = configuration_map["sort_parameter"];
